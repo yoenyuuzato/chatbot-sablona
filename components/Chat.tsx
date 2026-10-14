@@ -119,7 +119,9 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
       ? t.rateLimited
       : /too_long|413/.test(error.message)
         ? t.tooLong
-        : t.error
+        : /busy/.test(error.message)
+          ? t.busy
+          : t.error
     : null;
 
   const lastIsUser = messages.at(-1)?.role === "user";

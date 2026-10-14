@@ -79,7 +79,7 @@ export const clientConfig = {
      */
     provider: "gemini" as "gemini" | "anthropic",
     models: {
-      gemini: "gemini-3.5-flash",
+      gemini: "gemini-3.5-flash-lite", // lite = vyšší limity free tieru, rychlejší; chytřejší: "gemini-3.5-flash"
       anthropic: "claude-haiku-5-5",
     },
     maxOutputTokens: 600,

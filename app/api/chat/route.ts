@@ -81,12 +81,14 @@ export async function POST(req: Request) {
     ],
     messages: await convertToModelMessages(messages),
     maxOutputTokens: clientConfig.ai.maxOutputTokens,
+    maxRetries: 1, // opakované pokusy by zbytečně vyčerpávaly limity (free tier)
   });
 
   return result.toUIMessageStreamResponse({
     onError: (error) => {
       console.error("[chat] AI error:", error);
-      return "error";
+      const msg = String((error as { message?: string })?.message ?? error);
+      return /quota|rate|429|RESOURCE_EXHAUSTED|overloaded|credit/i.test(msg) ? "busy" : "error";
     },
   });
 }
