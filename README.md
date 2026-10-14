@@ -17,6 +17,12 @@ Univerzální AI chatbot pro weby zákazníků. Jedna šablona → pro každého
 - Prompt caching → znalostní báze se neúčtuje celá při každé zprávě
 - **Demo režim** bez API klíče (UI jde testovat hned)
 
+## Profily (víc firem v jednom nasazení)
+
+V `client.config.ts` je objekt `profiles` (teď `restaurace` a `tpd`). Každý profil má vlastní název, barvy, kontakt, uvítání a znalosti v `knowledge/<id>/`. Na webu se vybírá přes `data-profile="tpd"`. Na demo stránce se mezi profily přepíná nahoře.
+
+Pro ostrého zákazníka: nech jeden profil a nastav ho jako `defaultProfile`.
+
 ## Nový zákazník – checklist
 
 1. [ ] Na GitHubu **Use this template** → nové repo (např. `chatbot-rohozec`)
@@ -26,13 +32,13 @@ Univerzální AI chatbot pro weby zákazníků. Jedna šablona → pro každého
    git clone https://github.com/YongChen2/chatbot-NAZEV.git chatbot-NAZEV
    cd chatbot-NAZEV && npm install
    ```
-3. [ ] Upravit **`client.config.ts`**: název, popis, barvy, logo, kontakt, uvítání, navrhované otázky, `allowedOrigins` (domény webu zákazníka)
-4. [ ] Nahradit soubory v **`/knowledge`** údaji zákazníka (otevírací doba, ceník, menu, FAQ…). Libovolný počet `.md` souborů.
+3. [ ] V **`client.config.ts`** upravit/přidat profil: název, popis, barvy, logo, kontakt, uvítání, navrhované otázky; `allowedOrigins` (domény webu zákazníka)
+4. [ ] Podklady zákazníka do **`/knowledge/<id-profilu>`** (otevírací doba, ceník, menu, FAQ…). Libovolný počet `.md` souborů.
 5. [ ] Lokálně otestovat: `cp .env.example .env.local`, doplnit klíč, `npm run dev` → http://localhost:3000
 6. [ ] Vercel → Add New Project → import repa → Environment Variables: `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini) nebo `ANTHROPIC_API_KEY` (Claude)
 7. [ ] Na web zákazníka vložit před `</body>`:
    ```html
-   <script src="https://chatbot-NAZEV.vercel.app/widget.js" defer></script>
+   <script src="https://chatbot-NAZEV.vercel.app/widget.js" data-profile="ID" defer></script>
    ```
 8. [ ] Vyzkoušet na živém webu (desktop + mobil)
 
@@ -54,7 +60,7 @@ import Script from "next/script";
 
 ```
 client.config.ts      ← JEDINÝ soubor, který se mění per zákazník
-knowledge/*.md        ← znalosti zákazníka
+knowledge/<profil>/   ← znalosti každého profilu (*.md)
 locales/index.ts      ← texty UI (cs, en)
 app/api/chat/         ← AI endpoint (limity, origin, rate limit)
 app/widget.js/        ← vkládací skript (generuje se z configu)

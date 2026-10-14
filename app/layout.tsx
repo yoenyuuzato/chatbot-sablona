@@ -1,17 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { clientConfig } from "@/client.config";
+import { clientConfig, getProfile } from "@/client.config";
+
+const profile = getProfile(clientConfig.defaultProfile);
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: `${clientConfig.botName} | ${clientConfig.companyName}`,
-  description: `AI asistent – ${clientConfig.companyName}`,
+  title: `${profile.botName} | ${profile.companyName}`,
+  description: `AI asistent – ${profile.companyName}`,
   robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: clientConfig.theme.primary,
+  themeColor: profile.theme.primary,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

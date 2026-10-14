@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   },
   // znalostní báze se čte za běhu ze souborů → musí být v deployi
   outputFileTracingIncludes: {
-    "/api/chat": ["./knowledge/**/*"],
+    "/api/chat": ["./knowledge/**/*"], // všechny profily
   },
   async headers() {
     return [

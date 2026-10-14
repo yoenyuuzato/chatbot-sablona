@@ -5,7 +5,7 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
-import { clientConfig, type Locale } from "@/client.config";
+import { clientConfig, resolveProfileId, type Locale } from "@/client.config";
 import { buildContext, buildSystemPrompt } from "@/lib/knowledge";
 import { envKeyName, getModel, hasApiKey } from "@/lib/model";
 import { isOriginAllowed, rateLimit } from "@/lib/security";
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   if (!rateLimit(ip)) return json(429, "rate_limited");
 
   // 3) Validace vstupu
-  let body: { messages?: UIMessage[]; locale?: string };
+  let body: { messages?: UIMessage[]; locale?: string; profile?: string };
   try {
     body = await req.json();
   } catch {
@@ -67,7 +67,8 @@ export async function POST(req: Request) {
   const locale: Locale = clientConfig.locales.includes(body.locale as Locale)
     ? (body.locale as Locale)
     : clientConfig.locales[0];
-  const system = await buildSystemPrompt();
+  const profileId = resolveProfileId(body.profile);
+  const system = await buildSystemPrompt(profileId);
   const result = streamText({
     model: getModel(),
     system: [

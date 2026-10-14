@@ -2,13 +2,21 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { clientConfig, type Locale } from "@/client.config";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { clientConfig, getProfile, resolveProfileId, type Locale, type ProfileId } from "@/client.config";
 import { dictionaries } from "@/locales";
 import { Markdown } from "./Markdown";
 import { useVoice } from "./useVoice";
 
-const STORAGE_KEY = "chatbot:messages";
+function detectProfile(): ProfileId {
+  try {
+    return resolveProfileId(new URLSearchParams(window.location.hash.slice(1)).get("profile"));
+  } catch {
+    return clientConfig.defaultProfile;
+  }
+}
+
+const storageKey = (profileId: ProfileId) => `chatbot:messages:${profileId}`;
 
 function detectLocale(): Locale {
   const supported = clientConfig.locales;
@@ -22,9 +30,9 @@ function detectLocale(): Locale {
   return supported.includes(nav) ? nav : supported[0];
 }
 
-function loadMessages(): UIMessage[] {
+function loadMessages(profileId: ProfileId): UIMessage[] {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(storageKey(profileId));
     return raw ? (JSON.parse(raw) as UIMessage[]) : [];
   } catch {
     return [];
@@ -36,8 +44,10 @@ function textOf(m: UIMessage) {
 }
 
 export function Chat({ embedded = false }: { embedded?: boolean }) {
+  const [profileId] = useState<ProfileId>(detectProfile);
+  const profile = getProfile(profileId);
   const [locale, setLocale] = useState<Locale>(detectLocale);
-  const [initialMessages] = useState<UIMessage[]>(loadMessages);
+  const [initialMessages] = useState<UIMessage[]>(() => loadMessages(profileId));
   const t = dictionaries[locale];
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
@@ -50,9 +60,9 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     if (status === "streaming") return;
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      sessionStorage.setItem(storageKey(profileId), JSON.stringify(messages));
     } catch {}
-  }, [messages, status]);
+  }, [messages, status, profileId]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -68,18 +78,15 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
     readAloudRef.current = readAloud;
   }, [readAloud]);
 
-  const send = useCallback(
-    (text: string, viaVoice = false) => {
+  function send(text: string, viaVoice = false) {
       const value = text.trim();
       if (!value || busy || value.length > clientConfig.ai.maxMessageLength) return;
       if (error) clearError();
       if (viaVoice && clientConfig.voice.autoReadVoiceReplies) setReadAloud(true);
-      sendMessage({ text: value }, { body: { locale } });
+      sendMessage({ text: value }, { body: { locale, profile: profileId } });
       setInput("");
       if (!viaVoice) requestAnimationFrame(() => inputRef.current?.focus());
-    },
-    [busy, error, clearError, sendMessage, locale],
-  );
+  }
 
   const voice = useVoice(locale, (text) => send(text, true));
   const voiceEnabled = clientConfig.voice.enabled;
@@ -106,7 +113,7 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
     setMessages([]);
     clearError();
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(storageKey(profileId));
     } catch {}
   }
 
@@ -126,24 +133,24 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
 
   const lastIsUser = messages.at(-1)?.role === "user";
   const style = {
-    "--cb-primary": clientConfig.theme.primary,
-    "--cb-primary-text": clientConfig.theme.primaryText,
-    "--cb-radius": `${clientConfig.theme.radius}px`,
+    "--cb-primary": profile.theme.primary,
+    "--cb-primary-text": profile.theme.primaryText,
+    "--cb-radius": `${profile.theme.radius}px`,
   } as CSSProperties;
 
   return (
     <div className={`cb ${embedded ? "cb--embedded" : ""}`} style={style} lang={locale}>
       <header className="cb-header">
         <div className="cb-avatar" aria-hidden>
-          {clientConfig.logo ? (
+          {profile.logo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={clientConfig.logo} alt="" />
+            <img src={profile.logo} alt="" />
           ) : (
-            clientConfig.companyName.charAt(0)
+            profile.companyName.charAt(0)
           )}
         </div>
         <div className="cb-title">
-          <strong>{clientConfig.companyName}</strong>
+          <strong>{profile.companyName}</strong>
           <span>
             <i className="cb-dot" /> {t.online}
           </span>
@@ -209,13 +216,13 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
       <div className="cb-messages" ref={listRef} aria-live="polite">
         <div className="cb-msg cb-msg--bot">
           <div className="cb-bubble">
-            <Markdown text={clientConfig.welcome[locale]} />
+            <Markdown text={profile.welcome[locale]} />
           </div>
         </div>
 
         {messages.length === 0 && (
           <div className="cb-suggestions">
-            {clientConfig.suggestions[locale].map((s) => (
+            {profile.suggestions[locale].map((s) => (
               <button key={s} type="button" onClick={() => send(s)}>
                 {s}
               </button>

@@ -1,13 +1,14 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { clientConfig, type Locale } from "@/client.config";
+import { clientConfig, getProfile, type Locale, type ProfileId } from "@/client.config";
 
-let cache: string | null = null;
+const cache = new Map<string, string>();
 
-/** Načte všechny .md soubory ze složky /knowledge (seřazené podle názvu). */
-export async function loadKnowledge(): Promise<string> {
-  if (cache !== null && process.env.NODE_ENV === "production") return cache;
-  const dir = path.join(process.cwd(), "knowledge");
+/** Načte všechny .md soubory ze složky /knowledge/<profil> (seřazené podle názvu). */
+export async function loadKnowledge(profileId: ProfileId): Promise<string> {
+  const hit = cache.get(profileId);
+  if (hit !== undefined && process.env.NODE_ENV === "production") return hit;
+  const dir = path.join(process.cwd(), "knowledge", profileId);
   let files: string[] = [];
   try {
     files = (await readdir(dir)).filter((f) => f.endsWith(".md")).sort();
@@ -17,17 +18,18 @@ export async function loadKnowledge(): Promise<string> {
   const parts = await Promise.all(
     files.map(async (f) => `<!-- ${f} -->\n${(await readFile(path.join(dir, f), "utf8")).trim()}`),
   );
-  cache = parts.join("\n\n");
-  return cache;
+  const text = parts.join("\n\n");
+  cache.set(profileId, text);
+  return text;
 }
 
 /**
  * Statická část system promptu (role, pravidla, znalosti).
  * Je stejná pro všechny dotazy → cachuje se (levnější a rychlejší).
  */
-export async function buildSystemPrompt(): Promise<string> {
-  const c = clientConfig;
-  const knowledge = await loadKnowledge();
+export async function buildSystemPrompt(profileId: ProfileId): Promise<string> {
+  const c = getProfile(profileId);
+  const knowledge = await loadKnowledge(profileId);
   return `Jsi ${c.botName}, virtuální asistent firmy „${c.companyName}“. Odpovídáš návštěvníkům na jejím webu v chatovém okně.
 O firmě: ${c.companyDescription}
 Tón: ${c.tone}.

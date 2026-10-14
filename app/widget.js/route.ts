@@ -4,12 +4,14 @@ import { dictionaries } from "@/locales";
 /**
  * Vkládací skript pro web zákazníka:
  * <script src="https://TVUJ-BOT.vercel.app/widget.js" defer></script>
- * Volitelně: data-lang="en", data-position="left"
+ * Volitelně: data-profile="tpd", data-lang="en", data-position="left"
  */
 export function GET() {
   const cfg = {
-    primary: clientConfig.theme.primary,
-    primaryText: clientConfig.theme.primaryText,
+    defaultProfile: clientConfig.defaultProfile,
+    themes: Object.fromEntries(
+      Object.entries(clientConfig.profiles).map(([id, p]) => [id, { primary: p.theme.primary, primaryText: p.theme.primaryText }]),
+    ),
     position: clientConfig.position,
     locales: clientConfig.locales,
     labels: Object.fromEntries(
@@ -26,9 +28,12 @@ export function GET() {
   var lang = (script.getAttribute("data-lang") || (navigator.language || "").slice(0, 2)).toLowerCase();
   if (CFG.locales.indexOf(lang) === -1) lang = CFG.locales[0];
   var side = script.getAttribute("data-position") || CFG.position;
+  var profile = script.getAttribute("data-profile") || CFG.defaultProfile;
+  if (!CFG.themes[profile]) profile = CFG.defaultProfile;
+  var T = CFG.themes[profile];
   var L = CFG.labels[lang];
 
-  var css = ".cbw-btn{position:fixed;bottom:20px;" + side + ":20px;z-index:2147483000;width:60px;height:60px;border-radius:50%;border:0;cursor:pointer;background:" + CFG.primary + ";color:" + CFG.primaryText + ";box-shadow:0 8px 24px rgba(0,0,0,.22);display:grid;place-items:center;transition:transform .2s ease,box-shadow .2s ease;padding:0}" +
+  var css = ".cbw-btn{position:fixed;bottom:20px;" + side + ":20px;z-index:2147483000;width:60px;height:60px;border-radius:50%;border:0;cursor:pointer;background:" + T.primary + ";color:" + T.primaryText + ";box-shadow:0 8px 24px rgba(0,0,0,.22);display:grid;place-items:center;transition:transform .2s ease,box-shadow .2s ease;padding:0}" +
     ".cbw-btn:hover{transform:scale(1.06);box-shadow:0 10px 30px rgba(0,0,0,.28)}" +
     ".cbw-btn svg{width:28px;height:28px;transition:transform .25s ease,opacity .2s}" +
     ".cbw-btn .cbw-x{position:absolute;opacity:0;transform:rotate(-90deg)}" +
@@ -39,6 +44,7 @@ export function GET() {
     "@media (max-width:520px){.cbw-panel{inset:0;width:100%;height:100%;border-radius:0;bottom:0}.cbw-open .cbw-btn{display:none}}";
 
   var style = document.createElement("style");
+  style.id = "cbw-style";
   style.textContent = css;
   document.head.appendChild(style);
 
@@ -59,7 +65,7 @@ export function GET() {
   function setOpen(open) {
     if (open && !loaded) {
       var f = document.createElement("iframe");
-      f.src = BASE + "/embed#lang=" + lang;
+      f.src = BASE + "/embed#lang=" + lang + "&profile=" + encodeURIComponent(profile);
       f.title = "Chat";
       f.allow = "microphone; clipboard-write; autoplay";
       panel.appendChild(f);
@@ -71,11 +77,16 @@ export function GET() {
   }
 
   btn.addEventListener("click", function () { setOpen(!root.classList.contains("cbw-open")); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") setOpen(false); });
-  window.addEventListener("message", function (e) {
-    if (e.origin === BASE && e.data && e.data.type === "chatbot:close") setOpen(false);
-  });
-  window.ChatbotWidget = { open: function () { setOpen(true); }, close: function () { setOpen(false); } };
+  function onKey(e) { if (e.key === "Escape") setOpen(false); }
+  function onMsg(e) { if (e.origin === BASE && e.data && e.data.type === "chatbot:close") setOpen(false); }
+  document.addEventListener("keydown", onKey);
+  window.addEventListener("message", onMsg);
+  window.ChatbotWidget = {
+    open: function () { setOpen(true); },
+    close: function () { setOpen(false); },
+    /** odstraní widget ze stránky (např. pro přepnutí profilu v demu) */
+    destroy: function () { document.removeEventListener("keydown", onKey); window.removeEventListener("message", onMsg); root.remove(); style.remove(); window.__chatbotLoaded = false; delete window.ChatbotWidget; }
+  };
 })();`;
 
   return new Response(js, {
