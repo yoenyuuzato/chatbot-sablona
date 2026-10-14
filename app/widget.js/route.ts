@@ -61,7 +61,7 @@ export function GET() {
       var f = document.createElement("iframe");
       f.src = BASE + "/embed#lang=" + lang;
       f.title = "Chat";
-      f.allow = "clipboard-write";
+      f.allow = "microphone; clipboard-write; autoplay";
       panel.appendChild(f);
       loaded = true;
     }

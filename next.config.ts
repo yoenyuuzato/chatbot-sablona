@@ -26,7 +26,10 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/embed",
-        headers: [{ key: "Content-Security-Policy", value: `frame-ancestors ${frameAncestors}` }],
+        headers: [
+          { key: "Content-Security-Policy", value: `frame-ancestors ${frameAncestors}` },
+          { key: "Permissions-Policy", value: "microphone=(self), autoplay=(self)" },
+        ],
       },
     ];
   },

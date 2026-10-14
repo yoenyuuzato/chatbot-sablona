@@ -2,10 +2,11 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { clientConfig, type Locale } from "@/client.config";
 import { dictionaries } from "@/locales";
 import { Markdown } from "./Markdown";
+import { useVoice } from "./useVoice";
 
 const STORAGE_KEY = "chatbot:messages";
 
@@ -60,14 +61,38 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
   const busy = status === "submitted" || status === "streaming";
   const tooLong = input.length > clientConfig.ai.maxMessageLength;
 
-  function send(text: string) {
-    const value = text.trim();
-    if (!value || busy || value.length > clientConfig.ai.maxMessageLength) return;
-    if (error) clearError();
-    sendMessage({ text: value });
-    setInput("");
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }
+  // ---- hlas ----
+  const [readAloud, setReadAloud] = useState(false);
+  const readAloudRef = useRef(readAloud);
+  useEffect(() => {
+    readAloudRef.current = readAloud;
+  }, [readAloud]);
+
+  const send = useCallback(
+    (text: string, viaVoice = false) => {
+      const value = text.trim();
+      if (!value || busy || value.length > clientConfig.ai.maxMessageLength) return;
+      if (error) clearError();
+      if (viaVoice && clientConfig.voice.autoReadVoiceReplies) setReadAloud(true);
+      sendMessage({ text: value }, { body: { locale } });
+      setInput("");
+      if (!viaVoice) requestAnimationFrame(() => inputRef.current?.focus());
+    },
+    [busy, error, clearError, sendMessage, locale],
+  );
+
+  const voice = useVoice(locale, (text) => send(text, true));
+  const voiceEnabled = clientConfig.voice.enabled;
+
+  // po dokončení odpovědi ji případně přečti nahlas
+  const prevStatus = useRef(status);
+  useEffect(() => {
+    if (prevStatus.current === "streaming" && status === "ready" && readAloudRef.current) {
+      const last = messages.at(-1);
+      if (last?.role === "assistant") voice.speak(textOf(last));
+    }
+    prevStatus.current = status;
+  }, [status, messages, voice]);
 
   function changeLocale(l: Locale) {
     setLocale(l);
@@ -77,6 +102,7 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
   }
 
   function reset() {
+    voice.stopSpeaking();
     setMessages([]);
     clearError();
     try {
@@ -134,6 +160,32 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
               {locale.toUpperCase()}
             </button>
           )}
+          {voiceEnabled && voice.canSpeak && (
+            <button
+              type="button"
+              className={`cb-icon-btn ${readAloud ? "cb-icon-btn--on" : ""}`}
+              onClick={() => {
+                if (readAloud) voice.stopSpeaking();
+                setReadAloud(!readAloud);
+              }}
+              aria-pressed={readAloud}
+              aria-label={readAloud ? t.readAloudOff : t.readAloudOn}
+              title={readAloud ? t.readAloudOff : t.readAloudOn}
+            >
+              {readAloud ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                  <path d="M19 5a10 10 0 0 1 0 14" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                  <path d="m22 9-6 6M16 9l6 6" />
+                </svg>
+              )}
+            </button>
+          )}
           {messages.length > 0 && (
             <button type="button" className="cb-icon-btn" onClick={reset} aria-label={t.newChat} title={t.newChat}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -175,6 +227,21 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
           return (
             <div key={m.id} className={`cb-msg ${m.role === "user" ? "cb-msg--user" : "cb-msg--bot"}`}>
               <div className="cb-bubble">{m.role === "user" ? text : <Markdown text={text} />}</div>
+              {m.role === "assistant" && voiceEnabled && voice.canSpeak && !(busy && m.id === messages.at(-1)?.id) && (
+                <button
+                  type="button"
+                  className="cb-play"
+                  onClick={() => (voice.speaking ? voice.stopSpeaking() : voice.speak(text))}
+                  aria-label={voice.speaking ? t.stopReading : t.readThis}
+                  title={voice.speaking ? t.stopReading : t.readThis}
+                >
+                  {voice.speaking ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /></svg>
+                  )}
+                </button>
+              )}
             </div>
           );
         })}
@@ -209,9 +276,10 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
         <textarea
           ref={inputRef}
           rows={1}
-          value={input}
+          value={voice.listening ? voice.interim : input}
+          readOnly={voice.listening}
           maxLength={clientConfig.ai.maxMessageLength + 50}
-          placeholder={t.placeholder}
+          placeholder={voice.listening ? t.listening : t.placeholder}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -221,7 +289,24 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
           }}
           aria-label={t.placeholder}
         />
-        <button type="submit" disabled={busy || !input.trim() || tooLong} aria-label={t.send}>
+        {voiceEnabled && voice.canListen && (
+          <button
+            type="button"
+            className={`cb-mic ${voice.listening ? "cb-mic--on" : ""}`}
+            onClick={() => (voice.listening ? voice.stopListening() : voice.startListening())}
+            disabled={busy}
+            aria-pressed={voice.listening}
+            aria-label={voice.listening ? t.stopListening : t.speak}
+            title={voice.listening ? t.stopListening : t.speak}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3" />
+              <path d="M5 10a7 7 0 0 0 14 0" />
+              <path d="M12 17v4" />
+            </svg>
+          </button>
+        )}
+        <button type="submit" disabled={busy || !input.trim() || tooLong || voice.listening} aria-label={t.send}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M22 2 11 13" />
             <path d="M22 2 15 22l-4-9-9-4 20-7Z" />

@@ -9,6 +9,8 @@ Univerzální AI chatbot pro weby zákazníků. Jedna šablona → pro každého
 - Plovoucí chat widget, který se na **jakýkoli web** (Next.js, WordPress, Webnode…) vloží jedním `<script>`
 - Odpovídá **jen ze znalostní báze** (`/knowledge/*.md`), nevymýšlí si. Když neví, nabídne kontakt.
 - Čeština výchozí, angličtina připravená (přepínač CS/EN v hlavičce, bot odpovídá jazykem uživatele)
+- **Hlas CS/EN**: mikrofon (diktování) a čtení odpovědí nahlas, zdarma přes prohlížeč (Chrome, Edge, Safari). Když se uživatel zeptá hlasem, odpověď se přečte nahlas.
+- **Ví, kolik je hodin**: bot dostává aktuální datum a čas (`timezone` v configu), takže umí odpovědět na „máte teď otevřeno?“
 - Streaming odpovědí, navrhované otázky, plně responzivní (na mobilu fullscreen)
 - Historie drží v rámci záložky (přežije přechod mezi stránkami webu), na server se **nic neukládá**
 - Ochrana: povolené domény, rate limit podle IP, limit délky zprávy a historie
@@ -61,6 +63,14 @@ components/Chat.tsx   ← UI chatu
 lib/knowledge.ts      ← system prompt + načtení znalostí
 lib/security.ts       ← povolené domény, rate limit
 ```
+
+## Testovací web
+
+Kořenová stránka nasazeného bota (`https://chatbot-NAZEV.vercel.app/`) je demo s widgetem, kde se dá vše vyzkoušet ještě před vložením na web zákazníka. Samotný chat přes celou obrazovku je na `/embed`.
+
+## Automatický push (Mac)
+
+`~/Weby/chatbot-autopush.command`: dvojklik spustí Terminál, který každých 10 s pushne nové commity na GitHub. Vercel pak sám nasadí.
 
 ## Náklady
 

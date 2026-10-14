@@ -61,6 +61,15 @@ export const clientConfig = {
    */
   allowedOrigins: ["https://ukazkova-restaurace.cz", "https://www.ukazkova-restaurace.cz"],
 
+  /** Hlas: mikrofon (diktování) a čtení odpovědí nahlas – zdarma přes prohlížeč */
+  voice: {
+    enabled: true,
+    autoReadVoiceReplies: true, // když se uživatel zeptá hlasem, odpověď se přečte nahlas
+  },
+
+  /** Časové pásmo firmy (bot podle něj ví, jestli je teď otevřeno) */
+  timezone: "Europe/Prague",
+
   /** AI model a limity */
   ai: {
     model: "claude-haiku-5-5",

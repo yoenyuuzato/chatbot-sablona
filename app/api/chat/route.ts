@@ -6,8 +6,8 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
-import { clientConfig } from "@/client.config";
-import { buildSystemPrompt } from "@/lib/knowledge";
+import { clientConfig, type Locale } from "@/client.config";
+import { buildContext, buildSystemPrompt } from "@/lib/knowledge";
 import { isOriginAllowed, rateLimit } from "@/lib/security";
 
 export const maxDuration = 30;
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   if (!rateLimit(ip)) return json(429, "rate_limited");
 
   // 3) Validace vstupu
-  let body: { messages?: UIMessage[] };
+  let body: { messages?: UIMessage[]; locale?: string };
   try {
     body = await req.json();
   } catch {
@@ -63,15 +63,21 @@ export async function POST(req: Request) {
   }
 
   // 5) AI odpověď
+  const locale: Locale = clientConfig.locales.includes(body.locale as Locale)
+    ? (body.locale as Locale)
+    : clientConfig.locales[0];
   const system = await buildSystemPrompt();
   const result = streamText({
     model: anthropic(clientConfig.ai.model),
-    system: {
-      role: "system",
-      content: system,
-      // prompt caching – znalostní báze se neúčtuje celá při každé zprávě
-      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
-    },
+    system: [
+      {
+        role: "system",
+        content: system,
+        // prompt caching – statická část (pravidla + znalosti) se neúčtuje celá při každé zprávě
+        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+      },
+      { role: "system", content: buildContext(locale) },
+    ],
     messages: await convertToModelMessages(messages),
     maxOutputTokens: clientConfig.ai.maxOutputTokens,
   });

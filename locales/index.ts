@@ -3,7 +3,7 @@ import type { Locale } from "@/client.config";
 const cs = {
   openChat: "Otevřít chat",
   closeChat: "Zavřít chat",
-  online: "Online · odpovídá ihned",
+  online: "Online",
   placeholder: "Napište zprávu…",
   send: "Odeslat",
   typing: "Píše…",
@@ -14,12 +14,19 @@ const cs = {
   newChat: "Nová konverzace",
   privacy: "Odpovědi generuje AI a mohou obsahovat chyby. Konverzace se neukládají.",
   poweredBy: "AI asistent",
+  speak: "Mluvit (mikrofon)",
+  stopListening: "Ukončit nahrávání",
+  listening: "Poslouchám… mluvte",
+  readAloudOn: "Číst odpovědi nahlas",
+  readAloudOff: "Nečíst odpovědi nahlas",
+  readThis: "Přečíst nahlas",
+  stopReading: "Zastavit čtení",
 };
 
 const en: typeof cs = {
   openChat: "Open chat",
   closeChat: "Close chat",
-  online: "Online · replies instantly",
+  online: "Online",
   placeholder: "Type a message…",
   send: "Send",
   typing: "Typing…",
@@ -30,6 +37,13 @@ const en: typeof cs = {
   newChat: "New conversation",
   privacy: "Replies are AI-generated and may contain mistakes. Conversations are not stored.",
   poweredBy: "AI assistant",
+  speak: "Speak (microphone)",
+  stopListening: "Stop recording",
+  listening: "Listening… go ahead",
+  readAloudOn: "Read replies aloud",
+  readAloudOff: "Stop reading replies aloud",
+  readThis: "Read aloud",
+  stopReading: "Stop reading",
 };
 
 export const dictionaries: Record<Locale, typeof cs> = { cs, en };
