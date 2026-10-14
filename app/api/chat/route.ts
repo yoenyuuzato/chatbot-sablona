@@ -1,4 +1,3 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -8,16 +7,11 @@ import {
 } from "ai";
 import { clientConfig, type Locale } from "@/client.config";
 import { buildContext, buildSystemPrompt } from "@/lib/knowledge";
+import { envKeyName, getModel, hasApiKey } from "@/lib/model";
 import { isOriginAllowed, rateLimit } from "@/lib/security";
 
 export const maxDuration = 30;
 
-// Volitelně ANTHROPIC_WORKSPACE_ID – nutné u klíče, který není přiřazený k workspace
-const anthropic = createAnthropic({
-  headers: process.env.ANTHROPIC_WORKSPACE_ID
-    ? { "anthropic-workspace-id": process.env.ANTHROPIC_WORKSPACE_ID }
-    : undefined,
-});
 
 function json(status: number, error: string) {
   return Response.json({ error }, { status });
@@ -53,9 +47,9 @@ export async function POST(req: Request) {
   if (textOf(last).length > clientConfig.ai.maxMessageLength) return json(413, "too_long");
 
   // 4) Demo režim bez API klíče – aby šlo UI testovat lokálně
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!hasApiKey()) {
     const reply =
-      "⚠️ **Demo režim** – chybí `ANTHROPIC_API_KEY`. Přidej ho do `.env.local` (lokálně) nebo do Environment Variables na Vercelu a bot začne odpovídat podle znalostní báze.";
+      `⚠️ **Demo režim** – chybí \`${envKeyName()}\`. Přidej ho do \`.env.local\` (lokálně) nebo do Environment Variables na Vercelu a bot začne odpovídat podle znalostní báze.`;
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
         writer.write({ type: "text-start", id: "demo" });
@@ -75,12 +69,12 @@ export async function POST(req: Request) {
     : clientConfig.locales[0];
   const system = await buildSystemPrompt();
   const result = streamText({
-    model: anthropic(clientConfig.ai.model),
+    model: getModel(),
     system: [
       {
         role: "system",
         content: system,
-        // prompt caching – statická část (pravidla + znalosti) se neúčtuje celá při každé zprávě
+        // prompt caching (Claude) – statická část se neúčtuje celá při každé zprávě; Gemini cachuje automaticky
         providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       },
       { role: "system", content: buildContext(locale) },

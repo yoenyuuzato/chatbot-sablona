@@ -2,7 +2,7 @@
 
 Univerzální AI chatbot pro weby zákazníků. Jedna šablona → pro každého zákazníka klon + vlastní konfigurace a znalosti.
 
-**Stack:** Next.js · TypeScript · Tailwind · Vercel AI SDK · Claude (`claude-haiku-5-5`)
+**Stack:** Next.js · TypeScript · Tailwind · Vercel AI SDK · Gemini (free tier) nebo Claude – přepíná se `ai.provider` v `client.config.ts`
 
 ## Co umí
 
@@ -29,7 +29,7 @@ Univerzální AI chatbot pro weby zákazníků. Jedna šablona → pro každého
 3. [ ] Upravit **`client.config.ts`**: název, popis, barvy, logo, kontakt, uvítání, navrhované otázky, `allowedOrigins` (domény webu zákazníka)
 4. [ ] Nahradit soubory v **`/knowledge`** údaji zákazníka (otevírací doba, ceník, menu, FAQ…). Libovolný počet `.md` souborů.
 5. [ ] Lokálně otestovat: `cp .env.example .env.local`, doplnit klíč, `npm run dev` → http://localhost:3000
-6. [ ] Vercel → Add New Project → import repa → Environment Variables: `ANTHROPIC_API_KEY`
+6. [ ] Vercel → Add New Project → import repa → Environment Variables: `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini) nebo `ANTHROPIC_API_KEY` (Claude)
 7. [ ] Na web zákazníka vložit před `</body>`:
    ```html
    <script src="https://chatbot-NAZEV.vercel.app/widget.js" defer></script>
@@ -75,6 +75,7 @@ Kořenová stránka nasazeného bota (`https://chatbot-NAZEV.vercel.app/`) je de
 ## Náklady
 
 - Vercel: Hobby / Pro (podle zákazníka)
+- Gemini: free tier na testy a malé weby (limity požadavků; data z free tieru může Google použít ke zlepšení produktů – pro ostrý provoz u zákazníka doporučeno placené API).
 - Claude API: platí se za tokeny. Doporučení: **samostatný workspace a klíč pro každého zákazníka** v console.anthropic.com → přehled nákladů per klient, snadné přefakturování, nastavitelný měsíční limit.
 
 ## Další kroky (roadmap)

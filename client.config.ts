@@ -72,7 +72,16 @@ export const clientConfig = {
 
   /** AI model a limity */
   ai: {
-    model: "claude-haiku-5-5",
+    /**
+     * Poskytovatel AI:
+     *  "gemini"    – Google Gemini, má free tier (klíč: aistudio.google.com/apikey → GOOGLE_GENERATIVE_AI_API_KEY)
+     *  "anthropic" – Claude, placené podle spotřeby (console → ANTHROPIC_API_KEY)
+     */
+    provider: "gemini" as "gemini" | "anthropic",
+    models: {
+      gemini: "gemini-3.5-flash",
+      anthropic: "claude-haiku-5-5",
+    },
     maxOutputTokens: 600,
     maxHistory: 20, // max počet zpráv posílaných do AI
     maxMessageLength: 1000, // max znaků jedné zprávy
