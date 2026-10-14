@@ -1,4 +1,4 @@
-import { anthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -11,6 +11,13 @@ import { buildContext, buildSystemPrompt } from "@/lib/knowledge";
 import { isOriginAllowed, rateLimit } from "@/lib/security";
 
 export const maxDuration = 30;
+
+// Volitelně ANTHROPIC_WORKSPACE_ID – nutné u klíče, který není přiřazený k workspace
+const anthropic = createAnthropic({
+  headers: process.env.ANTHROPIC_WORKSPACE_ID
+    ? { "anthropic-workspace-id": process.env.ANTHROPIC_WORKSPACE_ID }
+    : undefined,
+});
 
 function json(status: number, error: string) {
   return Response.json({ error }, { status });
