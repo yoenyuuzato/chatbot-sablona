@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Locale } from "@/client.config";
+import { clientConfig, type Locale, type ProfileId } from "@/client.config";
 
 /* Minimální typy pro Web Speech API (nejsou ve standardních TS lib). */
 type SpeechRecognitionResultLike = { 0: { transcript: string }; isFinal: boolean };
@@ -51,13 +51,16 @@ function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
   );
 }
 
-export function useVoice(locale: Locale, onFinalText: (text: string) => void) {
+export function useVoice(locale: Locale, profileId: ProfileId, onFinalText: (text: string) => void) {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [canListen] = useState(() => getRecognitionCtor() !== null);
   const [canSpeak] = useState(() => typeof window !== "undefined" && "speechSynthesis" in window);
+  const canSpeakAny = canSpeak || clientConfig.voice.tts.engine === "gemini";
   const recRef = useRef<SpeechRecognitionLike | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const reqRef = useRef<AbortController | null>(null);
   const finalRef = useRef("");
   const onFinalRef = useRef(onFinalText);
 
@@ -75,16 +78,24 @@ export function useVoice(locale: Locale, onFinalText: (text: string) => void) {
   }, [canSpeak]);
 
   const stopSpeaking = useCallback(() => {
-    if (!canSpeak) return;
-    window.speechSynthesis.cancel();
+    reqRef.current?.abort();
+    reqRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      URL.revokeObjectURL(audioRef.current.src);
+      audioRef.current = null;
+    }
+    if (canSpeak) window.speechSynthesis.cancel();
     setSpeaking(false);
   }, [canSpeak]);
 
-  const speak = useCallback(
-    (text: string) => {
-      if (!canSpeak) return;
-      const clean = toSpeakable(text);
-      if (!clean) return;
+  /** Záložní hlas prohlížeče */
+  const speakBrowser = useCallback(
+    (clean: string) => {
+      if (!canSpeak) {
+        setSpeaking(false);
+        return;
+      }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(clean);
       u.lang = LANG_TAG[locale];
@@ -97,6 +108,43 @@ export function useVoice(locale: Locale, onFinalText: (text: string) => void) {
       window.speechSynthesis.speak(u);
     },
     [canSpeak, locale],
+  );
+
+  /** Přirozený hlas (Gemini TTS přes /api/tts), při chybě hlas prohlížeče */
+  const speak = useCallback(
+    async (text: string) => {
+      const clean = toSpeakable(text);
+      if (!clean) return;
+      stopSpeaking();
+      if (clientConfig.voice.tts.engine !== "gemini") return speakBrowser(clean);
+      setSpeaking(true);
+      const ctrl = new AbortController();
+      reqRef.current = ctrl;
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: clean, locale, profile: profileId }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) throw new Error(`tts ${res.status}`);
+        const blob = await res.blob();
+        if (ctrl.signal.aborted) return;
+        const audio = new Audio(URL.createObjectURL(blob));
+        audioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(audio.src);
+          if (audioRef.current === audio) audioRef.current = null;
+          setSpeaking(false);
+        };
+        audio.onerror = () => speakBrowser(clean);
+        await audio.play();
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError" || ctrl.signal.aborted) return;
+        speakBrowser(clean);
+      }
+    },
+    [locale, profileId, speakBrowser, stopSpeaking],
   );
 
   const startListening = useCallback(() => {
@@ -144,10 +192,12 @@ export function useVoice(locale: Locale, onFinalText: (text: string) => void) {
   useEffect(
     () => () => {
       recRef.current?.abort();
+      reqRef.current?.abort();
+      audioRef.current?.pause();
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
     },
     [],
   );
 
-  return { canListen, canSpeak, listening, interim, speaking, startListening, stopListening, speak, stopSpeaking };
+  return { canListen, canSpeak: canSpeakAny, listening, interim, speaking, startListening, stopListening, speak, stopSpeaking };
 }

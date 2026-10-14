@@ -9,7 +9,7 @@ Univerzální AI chatbot pro weby zákazníků. Jedna šablona → pro každého
 - Plovoucí chat widget, který se na **jakýkoli web** (Next.js, WordPress, Webnode…) vloží jedním `<script>`
 - Odpovídá **jen ze znalostní báze** (`/knowledge/*.md`), nevymýšlí si. Když neví, nabídne kontakt.
 - Čeština výchozí, angličtina připravená (přepínač CS/EN v hlavičce, bot odpovídá jazykem uživatele)
-- **Hlas CS/EN**: mikrofon (diktování) a čtení odpovědí nahlas, zdarma přes prohlížeč (Chrome, Edge, Safari). Když se uživatel zeptá hlasem, odpověď se přečte nahlas.
+- **Hlas CS/EN**: mikrofon (diktování) a čtení odpovědí nahlas **přirozeným neuronovým hlasem (Gemini TTS)**, každý profil může mít vlastní hlas (`voice` v profilu). Při limitu/chybě se automaticky použije hlas prohlížeče. Když se uživatel zeptá hlasem, odpověď se přečte nahlas.
 - **Ví, kolik je hodin**: bot dostává aktuální datum a čas (`timezone` v configu), takže umí odpovědět na „máte teď otevřeno?“
 - Streaming odpovědí, navrhované otázky, plně responzivní (na mobilu fullscreen)
 - Historie drží v rámci záložky (přežije přechod mezi stránkami webu), na server se **nic neukládá**

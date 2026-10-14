@@ -88,7 +88,7 @@ export function Chat({ embedded = false }: { embedded?: boolean }) {
       if (!viaVoice) requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-  const voice = useVoice(locale, (text) => send(text, true));
+  const voice = useVoice(locale, profileId, (text) => send(text, true));
   const voiceEnabled = clientConfig.voice.enabled;
 
   // po dokončení odpovědi ji případně přečti nahlas

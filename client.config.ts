@@ -35,6 +35,8 @@ export type Profile = {
   suggestions: Record<Locale, string[]>;
   /** Uvítací zpráva */
   welcome: Record<Locale, string>;
+  /** Hlas Gemini TTS (např. "Kore", "Charon", "Aoede", "Puck", "Leda"). Prázdné = výchozí z voice.tts. */
+  voice?: string;
 };
 
 const profiles = {
@@ -54,6 +56,7 @@ const profiles = {
       cs: ["Máte teď otevřeno?", "Co je dnes k obědu?", "Jak si rezervuji stůl?"],
       en: ["Are you open now?", "Can I book a table?", "Do you have vegetarian food?"],
     },
+    voice: "Aoede",
     welcome: {
       cs: "Dobrý den! 👋 Jsem virtuální asistent restaurace. S čím vám mohu pomoci?",
       en: "Hello! 👋 I'm the restaurant's virtual assistant. How can I help you?",
@@ -77,6 +80,7 @@ const profiles = {
       cs: ["Kolik stojí nový web?", "Jak rychle web dodáte?", "Chci nezávaznou konzultaci"],
       en: ["How much does a website cost?", "How fast can you deliver?", "I'd like a free consultation"],
     },
+    voice: "Charon",
     welcome: {
       cs: "Dobrý den! 👋 Jsem asistent Top Profit Design. Poradím s webem, e-shopem, cenou i termíny. Co plánujete?",
       en: "Hello! 👋 I'm the Top Profit Design assistant. I can help with websites, e-shops, pricing and timelines. What are you planning?",
@@ -111,6 +115,21 @@ export const clientConfig = {
   voice: {
     enabled: true,
     autoReadVoiceReplies: true, // když se uživatel zeptá hlasem, odpověď se přečte nahlas
+    /**
+     * Čtení nahlas:
+     *  "gemini"  – přirozený neuronový hlas (Gemini TTS, stejný klíč), při chybě/limitu záložně hlas prohlížeče
+     *  "browser" – jen hlas prohlížeče (zdarma, kvalita podle zařízení)
+     */
+    tts: {
+      engine: "gemini" as "gemini" | "browser",
+      models: ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts"],
+      defaultVoice: "Kore",
+      maxChars: 1200,
+      style: {
+        cs: "Mluv česky, přirozeně a vlídně jako ochotný člověk na recepci. Klidné tempo, žádný robotický přednes.",
+        en: "Speak naturally and warmly, like a friendly receptionist. Relaxed pace, not robotic.",
+      } as Record<Locale, string>,
+    },
   },
 
   /** Časové pásmo (bot podle něj ví, jestli je teď otevřeno) */
