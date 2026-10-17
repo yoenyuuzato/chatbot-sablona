@@ -1,7 +1,7 @@
 import { gte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { stats } from "@/lib/db/schema";
-import { today } from "@/lib/stats";
+import { dayHour, today } from "@/lib/stats";
 
 export type Totals = { conversations: number; messages: number; errors: number; busy: number };
 
@@ -33,4 +33,18 @@ export async function statsSince(days: number): Promise<{ total: Totals; byProfi
     for (const k of Object.keys(total) as (keyof Totals)[]) total[k] += t[k];
   }
   return { total, byProfile };
+}
+
+/** Zprávy za posledních 24 h (po hodinách, podle pásma bota) a zprávy celkem. */
+export async function messageCounts(): Promise<{ last24h: number; total: number }> {
+  const db = getDb();
+  const since = dayHour(new Date(Date.now() - 23 * 3600_000)); // aktuální hodina + 23 předchozích
+  const [[recent], [all]] = await Promise.all([
+    db
+      .select({ n: sql<number>`coalesce(sum(${stats.messages}), 0)::int` })
+      .from(stats)
+      .where(sql`(${stats.day}, ${stats.hour}) >= (${since.day}::date, ${since.hour})`),
+    db.select({ n: sql<number>`coalesce(sum(${stats.messages}), 0)::int` }).from(stats),
+  ]);
+  return { last24h: recent?.n ?? 0, total: all?.n ?? 0 };
 }

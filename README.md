@@ -27,6 +27,7 @@ Profily zákazníků (texty, barvy, hlas, domény) a jejich znalosti se spravuj�
 2. **Proměnné prostředí** (Vercel → Settings → Environment Variables), viz `.env.example`:
    - `ADMIN_PASSWORD` – heslo do adminu (dlouhé, náhodné)
    - `KNOWLEDGE_API_SECRET` – klíč pro API znalostí (IG bot), např. `openssl rand -hex 32`
+   - `NEXT_PUBLIC_SITE_URL` – produkční adresa bota pro embed kód (např. `https://chatbot-sablona.vercel.app` nebo vlastní doména). Bez ní se použije `https://chatbot-sablona.vercel.app`; nikdy se nepoužije adresa konkrétního deploye.
    - (volitelně) `ADMIN_SESSION_SECRET` – podpis cookie; jinak se použije heslo
 3. **Redeploy.** Migrace databáze se spustí samy při buildu (`npm run build` = `db:migrate` + `next build`).
 4. **Import současných profilů** (restaurace, tpd) – lokálně s `DATABASE_URL` v `.env.local`:
@@ -43,12 +44,12 @@ Profily zákazníků (texty, barvy, hlas, domény) a jejich znalosti se spravuj�
 3. **Povolené domény:** web zákazníka s `https://` i s `www` (např. `https://kavarna.cz`, `https://www.kavarna.cz`). Prázdný seznam = widget půjde vložit kamkoli.
 4. **Znalosti:** bloky Markdownu (otevírací doba, menu, ceník, FAQ…). Rychlý start: **Načíst z webu** → zadat URL → stáhne až 10 podstránek ze stejné domény → projít náhled, smazat zbytečnosti → *Potvrdit a uložit*. Bloky jde přeřadit, upravit, smazat; každá změna jde do historie a jde **vrátit**.
 5. **Simulátor:** vyzkoušet otázky zákazníků (funguje i pro neaktivní profil, nepočítá se do statistik).
-6. **Kopírovat embed kód** (stránka profilu) a vložit na web zákazníka před `</body>` – návod pro HTML/WordPress i Next.js je přímo u kódu. Náhled chatu: `/embed#profile=ID`.
+6. **Kopírovat embed kód** (záložka *Embed kód* nebo stránka profilu) a vložit na web zákazníka před `</body>` – návod pro HTML/WordPress i Next.js je přímo u kódu. Náhled chatu: `/embed#profile=ID`.
 7. Hotovo. Změny v adminu se na webech projeví do 1 minuty (cache 60 s). **Deaktivace** profilu = widget se na webu nezobrazí (vkládací skript je v CDN cache max. 1 h).
 
 ### Přehled a statistiky
 
-Na úvodní stránce adminu: počet profilů, konverzace a zprávy za 7/30 dní a počet „vytížený“ chyb (limit/přetížení AI). Ukládají se **jen denní počty**, nikdy obsah konverzací.
+Na úvodní stránce adminu: počet profilů, aktivních profilů, zprávy za 24 h a celkem, pod tím tabulka za 30 dní po profilech (konverzace, zprávy, „vytížený“ chyby). Ukládají se **jen hodinové počty**, nikdy obsah konverzací.
 
 ### API znalostí pro IG bota
 
@@ -119,7 +120,7 @@ proxy.ts              ← přihlášení do adminu, CSP frame-ancestors pro /emb
 
 ## Testovací web
 
-Kořenová stránka nasazeného bota (`https://chatbot-NAZEV.vercel.app/`) je demo s widgetem, kde se dá vše vyzkoušet ještě před vložením na web zákazníka. Samotný chat přes celou obrazovku je na `/embed`.
+Kořenová stránka (`/`) přesměruje do administrace (`/admin`, přihlášení heslem). Veřejné demo s přepínačem profilů a widgetem je na **`/demo`** – tam se dá vše vyzkoušet ještě před vložením na web zákazníka. Samotný chat přes celou obrazovku je na `/embed`.
 
 ## Automatický push (Mac)
 

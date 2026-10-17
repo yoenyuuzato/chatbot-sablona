@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { clientConfig } from "@/client.config";
 import type { PublicProfile } from "@/lib/profiles";
+import { SITE_URL } from "@/lib/site";
 
 type WidgetApi = { open: () => void; destroy: () => void };
 declare global {
@@ -61,7 +62,7 @@ export function Demo() {
   if (!list) return <div style={{ minHeight: "100dvh" }} />;
   if (!profile) return <main className="mx-auto max-w-2xl px-4 py-16 text-[var(--muted)]">Žádný aktivní profil.</main>;
 
-  const snippet = `<script src="${window.location.origin}/widget.js" data-profile="${profile.id}" defer></script>`;
+  const snippet = `<script src="${SITE_URL}/widget.js" data-profile="${profile.id}" defer></script>`;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-12 sm:py-16">

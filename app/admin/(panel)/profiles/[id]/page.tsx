@@ -1,5 +1,4 @@
 import { connection } from "next/server";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { count, eq } from "drizzle-orm";
@@ -11,15 +10,8 @@ import { ConfirmButton } from "../../confirm-button";
 import { ActiveBadge, NoDb, PageHeader, SourceBadge, Swatch } from "../../ui";
 import { ProfileForm } from "../profile-form";
 import { toFormValues } from "../profile-values";
-import { EmbedCode } from "./embed-code";
-
-/** Veřejná adresa bota (pro vkládací kód). */
-async function baseUrl() {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
+import { SITE_URL } from "@/lib/site";
+import { EmbedCode } from "../../embed-code";
 
 export default async function EditProfilePage({ params, searchParams }: PageProps<"/admin/profiles/[id]">) {
   await connection();
@@ -28,7 +20,6 @@ export default async function EditProfilePage({ params, searchParams }: PageProp
   const { created } = await searchParams;
   const profile = await getProfileById(id, { fresh: true });
   if (!profile) notFound();
-  const base = await baseUrl();
 
   if (profile.source === "config") {
     return (
@@ -97,7 +88,7 @@ export default async function EditProfilePage({ params, searchParams }: PageProp
         <aside className="space-y-6">
           <section className="card">
             <h2 className="mb-3 font-semibold">Vložení na web</h2>
-            <EmbedCode base={base} id={id} />
+            <EmbedCode base={SITE_URL} id={id} />
           </section>
           <section className="card text-sm">
             <h2 className="mb-2 font-semibold">Náhled</h2>

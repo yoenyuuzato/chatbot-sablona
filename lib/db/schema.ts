@@ -64,19 +64,21 @@ export const knowledgeHistory = pgTable(
   (t) => [index("knowledge_history_profile_idx").on(t.profileId, t.knowledgeId, t.createdAt)],
 );
 
-/** Denní statistiky – jen počty, BEZ obsahu zpráv. profile_id bez FK (počítají se i profily z client.config.ts). */
+/** Statistiky po hodinách – jen počty, BEZ obsahu zpráv. profile_id bez FK (počítají se i profily z client.config.ts). */
 export const stats = pgTable(
   "stats",
   {
     profileId: text("profile_id").notNull(),
     day: date("day").notNull(),
+    /** hodina 0–23 v časovém pásmu bota */
+    hour: integer("hour").notNull().default(0),
     conversations: integer("conversations").notNull().default(0),
     messages: integer("messages").notNull().default(0),
     errors: integer("errors").notNull().default(0),
     /** chyby typu „vytížený“ (limit / přetížení AI) */
     busy: integer("busy").notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.profileId, t.day] })],
+  (t) => [primaryKey({ columns: [t.profileId, t.day, t.hour] })],
 );
 
 export type ProfileRow = typeof profiles.$inferSelect;

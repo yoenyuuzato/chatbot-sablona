@@ -1,8 +1,9 @@
 import { connection } from "next/server";
 import Link from "next/link";
-import { statsSince, type Totals } from "@/lib/admin-stats";
+import { messageCounts, statsSince, type Totals } from "@/lib/admin-stats";
 import { hasDb } from "@/lib/db";
 import { listProfiles } from "@/lib/profiles";
+import { SITE_URL } from "@/lib/site";
 import { ActiveBadge, DbError, fmt, NoDb, PageHeader, Swatch } from "./ui";
 
 export default async function Dashboard() {
@@ -18,8 +19,8 @@ export default async function Dashboard() {
 
   let data;
   try {
-    const [list, s7, s30] = await Promise.all([listProfiles({ fresh: true }), statsSince(7), statsSince(30)]);
-    data = { list, s7, s30 };
+    const [list, s30, msgs] = await Promise.all([listProfiles({ fresh: true }), statsSince(30), messageCounts()]);
+    data = { list, s30, msgs };
   } catch (e) {
     return (
       <>
@@ -28,37 +29,26 @@ export default async function Dashboard() {
       </>
     );
   }
-  const { list, s7, s30 } = data;
-  const active = list.filter((p) => p.active).length;
+  const { list, s30, msgs } = data;
 
   const tiles = [
-    { label: "Profily", value: fmt(list.length), sub: `${active} aktivních`, href: "/admin/profiles" },
-    { label: "Konverzace", value: fmt(s7.total.conversations), sub: `7 dní · 30 dní: ${fmt(s30.total.conversations)}` },
-    { label: "Zprávy", value: fmt(s7.total.messages), sub: `7 dní · 30 dní: ${fmt(s30.total.messages)}` },
-    {
-      label: "„Vytížený“",
-      value: fmt(s7.total.busy),
-      sub: `7 dní · 30 dní: ${fmt(s30.total.busy)} · jiné chyby ${fmt(s30.total.errors)}`,
-      warn: s7.total.busy > 0,
-    },
+    { label: "Profily", value: list.length, href: "/admin/profiles" },
+    { label: "Aktivní profily", value: list.filter((p) => p.active).length, href: "/admin/profiles" },
+    { label: "Zprávy za 24 h", value: msgs.last24h },
+    { label: "Zprávy celkem", value: msgs.total },
   ];
 
   const empty: Totals = { conversations: 0, messages: 0, errors: 0, busy: 0 };
 
   return (
     <>
-      <PageHeader title="Přehled">
-        <Link href="/admin/profiles/new" className="btn">
-          Nový profil
-        </Link>
-      </PageHeader>
+      <PageHeader title="Přehled" />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {tiles.map((t) => {
           const body = (
             <>
               <div className="text-sm text-neutral-500">{t.label}</div>
-              <div className={`mt-1 text-2xl font-semibold ${t.warn ? "text-amber-700" : ""}`}>{t.value}</div>
-              <div className="hint">{t.sub}</div>
+              <div className="mt-1 text-2xl font-semibold">{fmt(t.value)}</div>
             </>
           );
           return t.href ? (
@@ -71,6 +61,27 @@ export default async function Dashboard() {
             </div>
           );
         })}
+      </div>
+      <div className="card mt-6 space-y-2 text-sm text-neutral-600">
+        <p>
+          Widget se vkládá jedním řádkem z domény <code className="font-mono">{SITE_URL}</code> – kód pro každý profil najdete v
+          záložce{" "}
+          <Link href="/admin/embed" className="underline">
+            Embed kód
+          </Link>
+          . Odpovědi otestujete v{" "}
+          <Link href="/admin/simulate" className="underline">
+            simulátoru
+          </Link>
+          , veřejné demo s přepínačem profilů je na{" "}
+          <a href="/demo" target="_blank" rel="noreferrer" className="underline">
+            /demo
+          </a>
+          .
+        </p>
+        <p>
+          Statistiky obsahují jen počty zpráv a konverzací, obsah konverzací se nikde neukládá. Simulátor se nezapočítává.
+        </p>
       </div>
 
       <h2 className="mt-8 mb-3 text-base font-semibold">Za posledních 30 dní podle profilu</h2>
@@ -110,10 +121,7 @@ export default async function Dashboard() {
           </tbody>
         </table>
       </div>
-      <p className="hint mt-2">
-        Počítají se jen čísla (konverzace = první zpráva v chatu). Obsah konverzací se nikde neukládá. Simulátor se do statistik
-        nepočítá.
-      </p>
+      <p className="hint mt-2">Konverzace = první zpráva v chatu. „Vytížený“ = limit nebo přetížení AI.</p>
     </>
   );
 }

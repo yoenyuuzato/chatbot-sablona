@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./knowledge/**/*"],
   },
+  // kořen = administrace (přihlášení heslem); veřejné demo je na /demo
+  async redirects() {
+    return [{ source: "/", destination: "/admin", permanent: false }];
+  },
   async headers() {
     return [
       {
