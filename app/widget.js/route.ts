@@ -1,4 +1,6 @@
+import { connection } from "next/server";
 import { clientConfig } from "@/client.config";
+import { listProfiles } from "@/lib/profiles";
 import { dictionaries } from "@/locales";
 
 /**
@@ -6,12 +8,16 @@ import { dictionaries } from "@/locales";
  * <script src="https://TVUJ-BOT.vercel.app/widget.js" defer></script>
  * Volitelně: data-profile="tpd", data-lang="en", data-position="left"
  */
-export function GET() {
+export async function GET() {
+  await connection();
+  const all = await listProfiles(); // DB (cache 60 s), záložně client.config.ts
   const cfg = {
     defaultProfile: clientConfig.defaultProfile,
     themes: Object.fromEntries(
-      Object.entries(clientConfig.profiles).map(([id, p]) => [id, { primary: p.theme.primary, primaryText: p.theme.primaryText }]),
+      all.filter((p) => p.active).map((p) => [p.id, { primary: p.theme.primary, primaryText: p.theme.primaryText }]),
     ),
+    // neaktivní profily: widget se nezobrazí
+    inactive: all.filter((p) => !p.active).map((p) => p.id),
     position: clientConfig.position,
     locales: clientConfig.locales,
     labels: Object.fromEntries(
@@ -29,8 +35,10 @@ export function GET() {
   if (CFG.locales.indexOf(lang) === -1) lang = CFG.locales[0];
   var side = script.getAttribute("data-position") || CFG.position;
   var profile = script.getAttribute("data-profile") || CFG.defaultProfile;
+  if (CFG.inactive.indexOf(profile) !== -1) return;
   if (!CFG.themes[profile]) profile = CFG.defaultProfile;
   var T = CFG.themes[profile];
+  if (!T) return;
   var L = CFG.labels[lang];
 
   var css = ".cbw-btn{position:fixed;bottom:20px;" + side + ":20px;z-index:2147483000;width:60px;height:60px;border-radius:50%;border:0;cursor:pointer;background:" + T.primary + ";color:" + T.primaryText + ";box-shadow:0 8px 24px rgba(0,0,0,.22);display:grid;place-items:center;transition:transform .2s ease,box-shadow .2s ease;padding:0}" +

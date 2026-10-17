@@ -1,95 +1,44 @@
-import {
-  convertToModelMessages,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-  streamText,
-  type UIMessage,
-} from "ai";
-import { clientConfig, resolveProfileId, type Locale } from "@/client.config";
-import { buildContext, buildSystemPrompt } from "@/lib/knowledge";
-import { envKeyName, getModel, hasApiKey } from "@/lib/model";
+import { after } from "next/server";
+import { chatResponse, json, pickLocale, validateMessages, type ChatBody } from "@/lib/chat";
+import { resolveProfile } from "@/lib/profiles";
 import { isOriginAllowed, rateLimit } from "@/lib/security";
+import { recordStats } from "@/lib/stats";
 
 export const maxDuration = 30;
 
-
-function json(status: number, error: string) {
-  return Response.json({ error }, { status });
-}
-
-function textOf(m: UIMessage): string {
-  return m.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
-}
-
 export async function POST(req: Request) {
-  // 1) Původ požadavku
-  if (!isOriginAllowed(req.headers.get("origin"), req.headers.get("host"))) {
-    return json(403, "origin_not_allowed");
-  }
-
-  // 2) Rate limit podle IP
+  // 1) Rate limit podle IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (!rateLimit(ip)) return json(429, "rate_limited");
 
-  // 3) Validace vstupu
-  let body: { messages?: UIMessage[]; locale?: string; profile?: string };
+  // 2) Vstup a profil (DB, záložně client.config.ts)
+  let body: ChatBody;
   try {
     body = await req.json();
   } catch {
     return json(400, "invalid_json");
   }
-  const all = Array.isArray(body.messages) ? body.messages : [];
-  const messages = all
-    .filter((m) => (m.role === "user" || m.role === "assistant") && Array.isArray(m.parts))
-    .slice(-clientConfig.ai.maxHistory);
-  const last = messages.at(-1);
-  if (!last || last.role !== "user") return json(400, "no_user_message");
-  if (textOf(last).length > clientConfig.ai.maxMessageLength) return json(413, "too_long");
+  const profile = await resolveProfile(body.profile);
+  if (!profile || !profile.active) return json(404, "profile_inactive");
 
-  // 4) Demo režim bez API klíče – aby šlo UI testovat lokálně
-  if (!hasApiKey()) {
-    const reply =
-      `⚠️ **Demo režim** – chybí \`${envKeyName()}\`. Přidej ho do \`.env.local\` (lokálně) nebo do Environment Variables na Vercelu a bot začne odpovídat podle znalostní báze.`;
-    const stream = createUIMessageStream({
-      execute: async ({ writer }) => {
-        writer.write({ type: "text-start", id: "demo" });
-        for (const word of reply.split(/(\s+)/)) {
-          writer.write({ type: "text-delta", id: "demo", delta: word });
-          await new Promise((r) => setTimeout(r, 15));
-        }
-        writer.write({ type: "text-end", id: "demo" });
-      },
-    });
-    return createUIMessageStreamResponse({ stream });
+  // 3) Původ požadavku – domény profilu
+  if (!isOriginAllowed(req.headers.get("origin"), req.headers.get("host"), profile.allowedOrigins)) {
+    return json(403, "origin_not_allowed");
   }
 
-  // 5) AI odpověď
-  const locale: Locale = clientConfig.locales.includes(body.locale as Locale)
-    ? (body.locale as Locale)
-    : clientConfig.locales[0];
-  const profileId = resolveProfileId(body.profile);
-  const system = await buildSystemPrompt(profileId);
-  const result = streamText({
-    model: getModel(),
-    system: [
-      {
-        role: "system",
-        content: system,
-        // prompt caching (Claude) – statická část se neúčtuje celá při každé zprávě; Gemini cachuje automaticky
-        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
-      },
-      { role: "system", content: buildContext(locale) },
-    ],
-    messages: await convertToModelMessages(messages),
-    maxOutputTokens: clientConfig.ai.maxOutputTokens,
-    maxRetries: 1, // opakované pokusy by zbytečně vyčerpávaly limity (free tier)
-  });
+  // 4) Validace zpráv
+  const valid = validateMessages(body);
+  if ("error" in valid) return valid.error;
 
-  return result.toUIMessageStreamResponse({
-    onError: (error) => {
-      console.error("[chat] AI error:", error);
-      const msg = String((error as { message?: string })?.message ?? error);
-      return /quota|rate|429|RESOURCE_EXHAUSTED|overloaded|credit/i.test(msg) ? "busy" : "error";
-    },
+  // 5) Statistiky – jen počty, bez obsahu
+  const userMessages = valid.messages.filter((m) => m.role === "user").length;
+  after(() => recordStats(profile.id, { messages: 1, conversations: userMessages === 1 ? 1 : 0 }));
+
+  // 6) AI odpověď
+  return chatResponse({
+    profile,
+    messages: valid.messages,
+    locale: pickLocale(body.locale),
+    onError: (kind) => void recordStats(profile.id, kind === "busy" ? { busy: 1 } : { errors: 1 }),
   });
 }

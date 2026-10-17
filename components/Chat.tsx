@@ -3,20 +3,21 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { clientConfig, getProfile, resolveProfileId, type Locale, type ProfileId } from "@/client.config";
+import { clientConfig, type Locale } from "@/client.config";
+import type { PublicProfile } from "@/lib/profiles";
 import { dictionaries } from "@/locales";
 import { Markdown } from "./Markdown";
 import { useVoice } from "./useVoice";
 
-function detectProfile(): ProfileId {
+function detectProfile(): string {
   try {
-    return resolveProfileId(new URLSearchParams(window.location.hash.slice(1)).get("profile"));
+    return new URLSearchParams(window.location.hash.slice(1)).get("profile") || clientConfig.defaultProfile;
   } catch {
     return clientConfig.defaultProfile;
   }
 }
 
-const storageKey = (profileId: ProfileId) => `chatbot:messages:${profileId}`;
+const storageKey = (profileId: string) => `chatbot:messages:${profileId}`;
 
 function detectLocale(): Locale {
   const supported = clientConfig.locales;
@@ -30,7 +31,7 @@ function detectLocale(): Locale {
   return supported.includes(nav) ? nav : supported[0];
 }
 
-function loadMessages(profileId: ProfileId): UIMessage[] {
+function loadMessages(profileId: string): UIMessage[] {
   try {
     const raw = sessionStorage.getItem(storageKey(profileId));
     return raw ? (JSON.parse(raw) as UIMessage[]) : [];
@@ -43,9 +44,37 @@ function textOf(m: UIMessage) {
   return m.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
 }
 
+type LoadState = { status: "loading" } | { status: "ready"; profile: PublicProfile } | { status: "unavailable" };
+
+/** Načte profil (DB, záložně client.config.ts) a pak vykreslí chat. Neaktivní profil = chat se nezobrazí. */
 export function Chat({ embedded = false }: { embedded?: boolean }) {
-  const [profileId] = useState<ProfileId>(detectProfile);
-  const profile = getProfile(profileId);
+  const [state, setState] = useState<LoadState>({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/profiles/${encodeURIComponent(detectProfile())}`)
+      .then((r) => (r.ok ? (r.json() as Promise<PublicProfile>) : Promise.reject(new Error(String(r.status)))))
+      .then((profile) => !cancelled && setState({ status: "ready", profile }))
+      .catch(() => !cancelled && setState({ status: "unavailable" }));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (state.status === "loading") return <div style={{ height: embedded ? "100dvh" : "100%", background: "#fff" }} />;
+  if (state.status === "unavailable") {
+    const t = dictionaries[detectLocale()];
+    return (
+      <div className={`cb ${embedded ? "cb--embedded" : ""}`} style={{ display: "grid", placeItems: "center", padding: 24 }}>
+        <p className="cb-privacy">{t.unavailable}</p>
+      </div>
+    );
+  }
+  return <ChatView profile={state.profile} embedded={embedded} />;
+}
+
+function ChatView({ profile, embedded }: { profile: PublicProfile; embedded: boolean }) {
+  const profileId = profile.id;
   const [locale, setLocale] = useState<Locale>(detectLocale);
   const [initialMessages] = useState<UIMessage[]>(() => loadMessages(profileId));
   const t = dictionaries[locale];

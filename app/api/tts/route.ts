@@ -1,6 +1,7 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { experimental_generateSpeech as generateSpeech } from "ai";
-import { clientConfig, getProfile, type Locale } from "@/client.config";
+import { clientConfig, type Locale } from "@/client.config";
+import { resolveProfile } from "@/lib/profiles";
 import { isOriginAllowed, rateLimit } from "@/lib/security";
 
 export const maxDuration = 30;
@@ -14,9 +15,6 @@ export async function POST(req: Request) {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (tts.engine !== "gemini" || !key) return Response.json({ error: "tts_disabled" }, { status: 503 });
 
-  if (!isOriginAllowed(req.headers.get("origin"), req.headers.get("host"))) {
-    return Response.json({ error: "origin_not_allowed" }, { status: 403 });
-  }
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (!rateLimit(`tts:${ip}`)) return Response.json({ error: "rate_limited" }, { status: 429 });
 
@@ -26,11 +24,15 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ error: "invalid_json" }, { status: 400 });
   }
+  const profile = await resolveProfile(body.profile);
+  if (!profile || !profile.active) return Response.json({ error: "profile_inactive" }, { status: 404 });
+  if (!isOriginAllowed(req.headers.get("origin"), req.headers.get("host"), profile.allowedOrigins)) {
+    return Response.json({ error: "origin_not_allowed" }, { status: 403 });
+  }
   const text = (body.text ?? "").trim().slice(0, tts.maxChars);
   if (!text) return Response.json({ error: "empty" }, { status: 400 });
 
   const locale: Locale = clientConfig.locales.includes(body.locale as Locale) ? (body.locale as Locale) : clientConfig.locales[0];
-  const profile = getProfile(body.profile);
   const google = createGoogleGenerativeAI({ apiKey: key });
 
   // zkus modely postupně (různé mají různé limity free tieru)

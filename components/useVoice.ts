@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { clientConfig, type Locale, type ProfileId } from "@/client.config";
+import { clientConfig, type Locale } from "@/client.config";
 
 /* Minimální typy pro Web Speech API (nejsou ve standardních TS lib). */
 type SpeechRecognitionResultLike = { 0: { transcript: string }; isFinal: boolean };
@@ -51,7 +51,7 @@ function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
   );
 }
 
-export function useVoice(locale: Locale, profileId: ProfileId, onFinalText: (text: string) => void) {
+export function useVoice(locale: Locale, profileId: string, onFinalText: (text: string) => void) {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
   const [speaking, setSpeaking] = useState(false);

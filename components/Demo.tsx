@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { clientConfig, resolveProfileId, type ProfileId } from "@/client.config";
+import { clientConfig } from "@/client.config";
+import type { PublicProfile } from "@/lib/profiles";
 
 type WidgetApi = { open: () => void; destroy: () => void };
 declare global {
@@ -10,19 +11,17 @@ declare global {
   }
 }
 
-const ids = Object.keys(clientConfig.profiles) as ProfileId[];
-
-function initialProfile(): ProfileId {
+function initialProfile(): string {
   if (typeof window === "undefined") return clientConfig.defaultProfile;
   try {
     const fromHash = new URLSearchParams(window.location.hash.slice(1)).get("profile");
-    if (fromHash) return resolveProfileId(fromHash);
+    if (fromHash) return fromHash;
   } catch {}
   return clientConfig.defaultProfile;
 }
 
 /** Vloží widget.js s daným profilem (a odstraní předchozí instanci). */
-function mountWidget(profileId: ProfileId, open: boolean) {
+function mountWidget(profileId: string, open: boolean) {
   window.ChatbotWidget?.destroy();
   document.querySelectorAll("script[data-cb-demo]").forEach((s) => s.remove());
   const s = document.createElement("script");
@@ -34,11 +33,23 @@ function mountWidget(profileId: ProfileId, open: boolean) {
 }
 
 export function Demo() {
-  const [profileId, setProfileId] = useState<ProfileId>(initialProfile);
-  const profile = clientConfig.profiles[profileId];
+  const [list, setList] = useState<PublicProfile[] | null>(null);
+  const [wanted, setProfileId] = useState<string>(initialProfile);
   const [switched, setSwitched] = useState(false);
 
+  // aktivní profily z DB (záložně client.config.ts)
   useEffect(() => {
+    fetch("/api/profiles")
+      .then((r) => r.json() as Promise<PublicProfile[]>)
+      .then(setList)
+      .catch(() => setList([]));
+  }, []);
+
+  const profile = list?.find((p) => p.id === wanted) ?? list?.find((p) => p.id === clientConfig.defaultProfile) ?? list?.[0];
+  const profileId = profile?.id;
+
+  useEffect(() => {
+    if (!profileId) return;
     mountWidget(profileId, switched);
     try {
       history.replaceState(null, "", `#profile=${profileId}`);
@@ -47,15 +58,18 @@ export function Demo() {
 
   useEffect(() => () => window.ChatbotWidget?.destroy(), []);
 
-  const snippet = `<script src="https://chatbot-sablona.vercel.app/widget.js" data-profile="${profileId}" defer></script>`;
+  if (!list) return <div style={{ minHeight: "100dvh" }} />;
+  if (!profile) return <main className="mx-auto max-w-2xl px-4 py-16 text-[var(--muted)]">Žádný aktivní profil.</main>;
+
+  const snippet = `<script src="${window.location.origin}/widget.js" data-profile="${profile.id}" defer></script>`;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-12 sm:py-16">
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium tracking-wide text-[var(--muted)] uppercase">Demo profil</span>
         <div role="tablist" aria-label="Profil chatbota" className="flex rounded-full border border-black/10 bg-white p-1 shadow-sm">
-          {ids.map((id) => {
-            const p = clientConfig.profiles[id];
+          {list.map((p) => {
+            const id = p.id;
             const active = id === profileId;
             return (
               <button
@@ -84,8 +98,8 @@ export function Demo() {
       <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">{profile.companyName}</h1>
       <p className="mt-3 text-[17px] leading-relaxed text-[var(--muted)]">{profile.companyDescription}</p>
       <p className="mt-4 text-[15px] leading-relaxed text-[var(--muted)]">
-        Klikni na bublinu vpravo dole a zeptej se. Bot odpovídá jen z podkladů ve složce{" "}
-        <code>/knowledge/{profileId}</code>, umí česky i anglicky a má mikrofon i čtení nahlas.
+        Klikni na bublinu vpravo dole a zeptej se. Bot odpovídá jen ze znalostí profilu (správa v{" "}
+        <a href="/admin" className="underline">/admin</a>), umí česky i anglicky a má mikrofon i čtení nahlas.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -121,15 +135,12 @@ export function Demo() {
       <section className="mt-12">
         <h2 className="text-lg font-semibold">Nový zákazník – checklist</h2>
         <ol className="mt-3 list-decimal space-y-1 pl-5 text-[15px] text-[var(--muted)]">
-          <li>„Use this template“ na GitHubu → nové repo</li>
           <li>
-            V <code>client.config.ts</code> přidat/upravit profil (název, barvy, kontakt, domény)
+            <code>/admin</code> → Profily → Nový profil (název, barvy, kontakt, domény)
           </li>
-          <li>
-            Podklady do <code>/knowledge/&lt;id-profilu&gt;</code>
-          </li>
-          <li>Import na Vercel + API klíč</li>
-          <li>Vložit skript na web zákazníka</li>
+          <li>Znalosti: vložit Markdown nebo „Načíst z webu“</li>
+          <li>Vyzkoušet v Simulátoru</li>
+          <li>„Kopírovat embed kód“ a vložit na web zákazníka</li>
         </ol>
       </section>
     </main>

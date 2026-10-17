@@ -22,6 +22,7 @@ const cs = {
   readAloudOff: "Nečíst odpovědi nahlas",
   readThis: "Přečíst nahlas",
   stopReading: "Zastavit čtení",
+  unavailable: "Chat teď není dostupný.",
 };
 
 const en: typeof cs = {
@@ -46,6 +47,7 @@ const en: typeof cs = {
   readAloudOff: "Stop reading replies aloud",
   readThis: "Read aloud",
   stopReading: "Stop reading",
+  unavailable: "Chat is not available right now.",
 };
 
 export const dictionaries: Record<Locale, typeof cs> = { cs, en };
